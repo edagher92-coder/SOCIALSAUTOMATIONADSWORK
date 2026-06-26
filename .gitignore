@@ -1,0 +1,16 @@
+# SECRETS - never commit
+meta_token.txt
+page_token.txt
+meta_app.txt
+meta_page.json
+meta_ig.json
+*.token
+*.skill.backup
+
+# OS / junk
+desktop.ini
+.DS_Store
+
+# Large media - kept in Google Drive, referenced in docs
+*.mp4
+*.mov
