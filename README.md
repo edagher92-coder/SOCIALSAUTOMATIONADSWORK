@@ -20,3 +20,19 @@ No prices in ad creative · never “%-cheaper” claims · one CTA · faceless 
 
 ## Security
 Meta tokens & app secrets are **gitignored and never committed**. Large video files live in Google Drive, linked from the docs.
+
+## Skill router (`skill_router/`)
+
+Vendored copy of the auto-registering skill router from the Snow Flow monorepo
+(`edagher92-coder/Claude-code-`, `src/skill_router/` — the source of truth; fix
+bugs there first, then re-copy). Stdlib-only, zero config: it reads every
+`*/SKILL.md` under `.claude/skills/` (or a top-level `skills/`) as its routing
+table and ranks the skills against a natural-language query.
+
+```bash
+python -m skill_router "which skill should I use"   # route a query
+python -m skill_router --registry                   # list registered skills
+python -m skill_router --index                      # regenerate the skills INDEX.md
+```
+
+Tests: `python -m pytest tests/test_skill_router.py` (stdlib + pytest only).
