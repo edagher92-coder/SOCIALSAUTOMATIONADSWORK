@@ -26,7 +26,7 @@ Two rules govern every row below, and they are not negotiable:
 
 | Vendor | Endpoint | Models | $/Mtok (in/out) | Key |
 |---|---|---|---|---|
-| **Anthropic** | `POST api.anthropic.com/v1/messages`<br>headers `x-api-key`, `anthropic-version: 2023-06-01` | `claude-opus-5` **(pinned default lead)**, `claude-sonnet-5` (fan-out workhorse), `claude-haiku-4-5` (mechanical), `claude-fable-5` (frontier reserve) | 5/25 · 3/15 · 1/5 · 10/50 | `ANTHROPIC_API_KEY` |
+| **Anthropic** | `POST api.anthropic.com/v1/messages`<br>headers `x-api-key`, `anthropic-version: 2023-06-01` | `claude-opus-5` **(pinned default lead)**, `claude-sonnet-5` (fan-out workhorse), `claude-haiku-4-5` (mechanical), `claude-fable-5-1` (frontier reserve; supersedes `claude-fable-5`, same price) | 5/25 · `[CONFIRM: 3/15 or 2/10 — sources disagree, see model-router]` · 1/5 · 10/50 | `ANTHROPIC_API_KEY` |
 | **OpenAI GPT-5.6** | `POST api.openai.com/v1/responses` (canonical for 5.6; chat/completions still accepted) | `gpt-5.6-sol` (alias `gpt-5.6`), `gpt-5.6-terra`, `gpt-5.6-luna` | 5/30 · 2.50/15 · 1/6 | `OPENAI_API_KEY` |
 | **Ollama** (flat-rate sub) | `POST {base}/api/generate` · `GET {base}/api/tags`<br>Anthropic-compat path lets Claude Code itself run on it (Ollama ≥ 0.14) | 18-model fleet; bridge tier defaults to `glm-5.2:cloud`, the weekly bench re-allocates it | **$0 marginal** | `OLLAMA_API_KEY` |
 
