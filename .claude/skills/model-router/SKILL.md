@@ -1,7 +1,7 @@
 ---
 name: model-router
 description: >-
-  Quality-first algorithm for choosing the Claude model (Haiku 4.5 / Sonnet 4.6 / Opus 5 / Fable 5),
+  Quality-first algorithm for choosing the Claude model (Haiku 4.5 / Sonnet 5 / Opus 5 / Fable 5.1),
   the effort level (low→max), whether to delegate to subagents, and whether to use Fast mode — per task,
   to get the best possible output at the lowest latency and weekly-limit cost that does NOT sacrifice
   quality. Invoke when deciding how to run work, when results feel slow or expensive, or to set up
@@ -52,17 +52,40 @@ If lowering cost or latency could plausibly degrade the result, **don't** — st
 
 ## Model tiers
 
-| Model | Price /1M (in/out) | Relative speed | Use for |
-|---|---|---|---|
-| **Haiku 4.5** | $1 / $5 | fastest | trivial, mechanical, high-volume, latency-critical-simple: lookups, file/path search, formatting, classification, rote edits |
-| **Sonnet 4.6** | $3 / $15 (0.6× Opus) | fast | **default daily driver** — most coding, edits, reviews, Q&A, well-specified tasks, prose |
-| **Opus 5** | $5 / $25 | slower (reasons more) | hard reasoning, long-horizon agentic, gnarly multi-file debugging, architecture, design, high-stakes/irreversible, security, ambiguous-but-important, anything that failed on a lower tier |
-| **Fable 5** | $10 / $50 | slowest | only on explicit request, or frontier reasoning Opus genuinely can't carry |
+Roster refreshed 2026-09-19. Carry the model **ID**, not just the name — a guessed ID is the most common
+way this table goes wrong, and a dated suffix invented from memory fails at the API rather than falling back.
 
-Sonnet is exactly 0.6× Opus on both input and output → ~40% cheaper per token. **Cost is the reliable
-saving; speed is task-dependent** — on small, well-specified tasks Opus can be *more* decisive (fewer tool
-calls, fewer tokens), so don't promise Sonnet is "faster" in general. Don't bias model choice on latency
-alone; choose on the quality/cost axes and treat speed as a tie-breaker for light, interactive turns.
+| Model | Model ID | Price /1M (in/out) | Context | Relative speed | Use for |
+|---|---|---|---|---|---|
+| **Haiku 4.5** | `claude-haiku-4-5` | $1 / $5 | 200K | fastest | trivial, mechanical, high-volume, latency-critical-simple: lookups, file/path search, formatting, classification, rote edits |
+| **Sonnet 5** | `claude-sonnet-5` | `[CONFIRM — sources disagree, see below]` | 1M | fast | **efficiency workhorse** — delegated subagents, fan-out, most coding, edits, reviews, Q&A, well-specified tasks, prose |
+| **Opus 5** | `claude-opus-5` | $5 / $25 | 1M | slower (reasons more) | **pinned main-session default** — hard reasoning, long-horizon agentic, gnarly multi-file debugging, architecture, design, high-stakes/irreversible, security, ambiguous-but-important, anything that failed on a lower tier |
+| **Fable 5.1** | `claude-fable-5-1` | $10 / $50 | 1M | slowest | only on explicit request, or frontier reasoning Opus genuinely can't carry |
+
+Three notes on that table, because each has bitten:
+
+- **Haiku is the only 200K model here.** The rest are 1M. Fan-out that dumps a large corpus into a Haiku
+  subagent will truncate rather than fail loudly — size the slice, don't assume the window. Use the alias
+  `claude-haiku-4-5`, not the dated full ID `claude-haiku-4-5-20251001`: the alias is what the API docs
+  mark "use this", and a dated suffix is the thing this table warns about two lines up.
+- **Fable 5.1 supersedes Fable 5** (`claude-fable-5`), at the same per-token price — $10 / $50 per MTok,
+  1M context. Cache reads differ: $0.25/MTok on 5.1 against $1/MTok on Fable 5.
+- **Sonnet 5's per-token price is an open `[CONFIRM]`, and that is deliberate.** Two sources in this
+  account disagree: `.claude/skills/apis/SKILL.md` says **$3 / $15**, while the `claude-api` skill that
+  ships built into Claude Code (not a file in this repo; its `shared/model-migration.md`) says
+  **$2 / $10** in three separate places. Resolve it from Anthropic's published pricing page
+  (anthropic.com/pricing) or the account's billing console — the Models API returns IDs and
+  capabilities, not prices, so it cannot settle this — then fill it in and delete this note. **Do not reconcile two disagreeing sources with a story** — an earlier revision of this file
+  invented "introductory pricing that expired" to make them agree, which is exactly the fabrication the
+  NUMBERS RULE exists to stop, committed in the file that teaches it.
+
+**The Sonnet↔Opus ratio therefore cannot be stated right now.** At $3 / $15 Sonnet 5 is 0.6× Opus 5
+(~40% cheaper per token); at $2 / $10 it is 0.4× (~60% cheaper). Re-derive it once the price above is
+resolved, and re-derive it again whenever either price moves — a ratio that survives a generation change
+untouched looks like a law and is not. **Cost is the reliable saving; speed is task-dependent** — on
+small, well-specified tasks Opus can be *more* decisive (fewer tool calls, fewer tokens), so don't promise
+Sonnet is "faster" in general. Don't bias model choice on latency alone; choose on the quality/cost axes
+and treat speed as a tie-breaker for light, interactive turns.
 
 ## Keeping the tiers current (new model releases)
 
@@ -70,14 +93,27 @@ Model names, IDs, prices, and capabilities change — the tier table above is a 
 When a newer model ships (e.g. a future top-tier **"5"-generation** Opus/Sonnet, an "Opus 5" / "Claude 5.x",
 or anything that supersedes Opus 5), do **not** guess its model ID, price, or capabilities:
 
-1. **Read the `claude-api` skill** (the live source of truth for model IDs/pricing) — or query the Models
-   API directly (`client.models.list()` / `client.models.retrieve(id)`) — for the exact string and rates.
+1. **Take the exact model ID** from the Models API (`client.models.list()` / `client.models.retrieve(id)`)
+   or the `claude-api` skill built into Claude Code, and **the price only from Anthropic's pricing page or
+   the billing console** — the Models API does not return prices.
 2. **Slot it into the tier table by capability and price**: a new flagship that beats Opus 5 takes the
    top "hard reasoning / stakes-gate" slot; re-baseline the Sonnet↔top-tier cost ratio against the new
-   prices (today's 0.6× is specific to Sonnet 4.6 vs Opus 5).
-3. Today's most-capable "5"-tier model is **Fable 5** (already listed, premium / explicit-request only);
-   **Mythos 5** is the same thing behind Project Glasswing. A genuinely new "5.0" flagship is added the
-   same way — verify, then slot.
+   prices (the Sonnet↔Opus ratio is currently underivable — see the tier table).
+3. Today's most-capable model is **Fable 5.1** (`claude-fable-5-1`, premium / explicit-request only),
+   superseding Fable 5; **Mythos 5** is the same class behind Project Glasswing. A genuinely new
+   flagship is added the same way — verify, then slot.
+4. **A price you cannot source is a `[CONFIRM]` gap, never an estimate — and two sources that
+   disagree are also a gap.** The NUMBERS RULE applies to model pricing exactly as it applies to a
+   customer quote: carrying a plausible-looking rate into a budget decision is the same failure as
+   carrying one into an invoice. The trap is not the number you know you lack; it is the one you
+   think you can infer. Reconciling a conflict with a plausible story ("it must have been
+   introductory pricing that expired") is fabrication wearing the clothes of diligence.
+5. **Before declaring a gap, search properly.** A gap asserts "no source has this", which is itself a
+   claim. The `claude-api` skill built into Claude Code (not a repo file; its `shared/models.md`) carries
+   a roster with prices, context windows and aliases — read it, and the pricing page, before concluding
+   anything is unsourced. If they disagree, that is a gap too (rule 4).
+6. **Record the refresh date** at the top of the tier table when you touch it. A table with no date
+   reads as current forever.
 
 The algorithm itself (stakes gate → score → fan-out → verify → downshift) is **model-agnostic** and does
 not change when the roster does — only the tier table and the cost ratio need refreshing.
@@ -106,7 +142,8 @@ Effort moves token spend and latency as much as model choice — right-sizing it
 
 3. SCORE complexity + ambiguity + output type:
    trivial + clear + cheap-to-verify        → Haiku 4.5  (or Sonnet, effort low)
-   everyday + well-specified                → Sonnet 4.6, effort medium   ← default
+   everyday + well-specified                → delegate to a Sonnet 5 subagent, effort medium
+                                              (the main session stays on its pinned Opus 5; never demote it)
    hard | ambiguous-important | long-horizon → Opus 5, effort high–xhigh
 
 4. BREADTH:
@@ -178,8 +215,9 @@ one **Sonnet** arm vs one **Opus** arm, judged by `tsc --strict` + the real `vit
 - **Quality was equal.** Both compiled strict-clean and passed their own suites (Sonnet 10/10, Opus 8/8).
   No bugs in either. → The "Sonnet for everyday well-specified coding" call holds: equal quality, lower cost.
 - **The saving was ~30%, and it came from the rate, not fewer tokens.** Sonnet actually used *more* tokens
-  and tool calls and was slightly slower on this task; it still cost ~30% less purely because of the 0.6×
-  price. Bank the cost win; don't assume a speed win.
+  and tool calls and was slightly slower on this task; it still cost ~30% less purely because of the lower
+  per-token rate. (That test predates the open Sonnet 5 price `[CONFIRM]` above; don't reuse the ~30% as a
+  current ratio until the price is resolved.) Bank the cost win; don't assume a speed win.
 - **Opus self-verified** (ran its own type-check + logic port) without being asked — a real edge for
   high-stakes/irreversible work. Keep the stakes gate.
 - **Ambiguous specs make tiers diverge — defensibly, not as bugs.** Cross-running one arm's tests against
@@ -193,7 +231,7 @@ When a `/model` change is worth it, lead with one line, then proceed; otherwise 
 
 ```
 ⟂ Router: hard debugging + high cost-of-error → suggest /model Opus (xhigh). Proceeding meanwhile.
-⟂ Router: this is routine — /model Sonnet would be ~40% cheaper and faster, no quality cost.
+⟂ Router: this is routine — delegating it to a Sonnet subagent (cheaper per token; main session stays on Opus).
 ```
 
 Keep it to one line. Don't narrate the scoring; just give the call and the one-clause reason.
